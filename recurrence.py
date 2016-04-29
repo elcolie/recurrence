@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-import os
+import os, sys
 
 from flask import Flask, json, request
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -67,11 +67,12 @@ def create_job():
     Input : JSON
     """
     # data = request.json
+    # import pdb; pdb.set_trace()
     if request.method == 'POST':
-        return request.json
+        data = str(request.json)
+        return data
     else:
         return '404'
-    return "Job Created"
 
 
 @app.route('/recurrence/edit', methods=['PUT'])
@@ -92,16 +93,18 @@ def delete_job():
     return "Job Deleted"
 
 
-def main():
+def main(*args, **kwargs):
     url = 'sqlite:///hello.sqlite3'
     scheduler.add_jobstore('sqlalchemy', url=url)
     print('To clear the alarms, delete the hello.sqlite3 file.')
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
     try:
+        if sys.argv[1] == 'debug':
+            app.debug = True
         app.run(host='localhost')
     except (KeyboardInterrupt, SystemExit):
         print("Scheduler Stop")
-        scheduler.stop()
+        scheduler.shutdown()
 
 if __name__ == '__main__':
     main()
