@@ -1,12 +1,10 @@
-from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
-from flask import Flask, json, request
-app = Flask(__name__)
-scheduler = BackgroundScheduler()
 
 
-def change_bandwidth(bandwidth : int):
-    print('Bandwidth Changed : %s' % bandwidth)
+def change_bandwidth(description_message: str or None,
+                        bandwidth: int or None):
+    temp_str = "'{0}' : '{1}'".format(description_message, bandwidth)
+    print(temp_str)
 
 
 def example_cron():
@@ -22,12 +20,3 @@ def example_date():
     """
     alarm_time = datetime.now() + timedelta(seconds=10)
     print('One time date has been scheduled')
-
-
-def example_interval():
-    """
-    http://apscheduler.readthedocs.io/en/latest/modules/triggers/interval.html#module-apscheduler.triggers.interval
-    """
-    scheduler.add_job(change_bandwidth, 'interval', seconds=3)
-    print('Alarm! This alarm was scheduled')
-

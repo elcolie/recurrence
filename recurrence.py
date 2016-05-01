@@ -1,10 +1,11 @@
 import os, sys
-
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import timedelta, datetime
 from flask import Flask, json, request
-from utility import scheduler, change_bandwidth, example_cron, example_date, example_interval
 
 
 app = Flask(__name__)
+scheduler = BackgroundScheduler()
 
 """
     Sample Case : 8:00 down bandwidth to 5, then 18:00 up bandwidth to 10
@@ -12,6 +13,12 @@ app = Flask(__name__)
     Receive JSON type : { "bandwidth" : 5 , "start_time"}
     curl -H "Content-Type: application/json" -X POST -d '{"schedule_type":"recurrence", "month" : ['Jan', 'Dec'], "start_time": "17:00""schedule_days": [1, 3, 5, 7]"stop_type" : "period","lifetime_quantity" : 1,"lifetime_unit" : "day","current_bandwidth" : 5,"new_bandwidth" : 10}' http://localhost:5000/recurrence/create
 """
+
+
+def change_bandwidth(description_message: str or None,
+                     bandwidth: int or None):
+    temp_str = "'{0}' : '{1}'".format(description_message, bandwidth)
+    print(temp_str)
 
 
 @app.route('/recurrence/start', methods=['GET'])
@@ -45,18 +52,43 @@ def list_job():
 @app.route('/recurrence/create', methods=['POST'])
 def create_job():
     """Create a job
-    Usage: curl -H "Content-Type: application/json" -X POST -d '{"key":"value"}' http://localhost:5000/recurrence/create
-    curl -H "Content-Type: application/json" -X POST -d '{"id":"C101", "seconds":3, "bandwidth":21}' http://localhost:5000/recurrence/create
+    First Receiving the JSON order.
+    Second Decompose in to 2 jobs.
+        1. Start changing bandwidth and
+        2. Start undoing bandwidth
+    Usage:
+    curl -H "Content-Type: application/json" -X POST -d '{"schedule_type":"recurrecen","day_of_week":"mon,wed,fri","start_time":"06:00","bandwidth1": 10,"end_time":"18:00","bandwidth2":20}' http://localhost:5000/recurrence/create
     Input : JSON
+    Apscheduler will create 2 josb base on given id
     """
     if request.method == 'POST':
-        recv_id = request.json['id'] # Choose wisly to be brief and concise meaning
-        recv_seconds = request.json['seconds']
-        recv_bandwidth = request.json['bandwidth']
-        # import pdb; pdb.set_trace()
+        recv_schedule_type = request.json['schedule_type']
+        recv_day_of_week = request.json['day_of_week']
 
-        scheduler.add_job(change_bandwidth, 'interval', seconds=recv_seconds, id=recv_id, args=[recv_bandwidth])
-        return str(request.json)
+        recv_start_time = request.json['start_time']
+        recv_hour1, recv_minute1 = recv_start_time.split(':')
+        recv_hour1, recv_minute1 = int(recv_hour1), int(recv_minute1)
+        recv_bandwidth1 = request.json['bandwidth1']
+
+        recv_end_time = request.json['end_time']
+        recv_hour2, recv_minute2 = recv_end_time.split(':')
+        recv_hour2, recv_minute2 = int(recv_hour2), int(recv_minute2)
+        recv_bandwidth2 = request.json['bandwidth2']
+
+        recv_id1 = "'{0}'-'{1}'-'start : '{2}'-'{3}' Mbps".format(recv_schedule_type, recv_day_of_week, recv_start_time, recv_bandwidth1)
+        recv_id2 = "'{0}'-'{1}'-'start : {2}'-'{3}' Mbps".format(recv_schedule_type, recv_day_of_week, recv_end_time, recv_bandwidth2)
+
+        try:
+            # First change
+            scheduler.add_job(change_bandwidth, 'cron', day_of_week=recv_day_of_week,
+                              hour=recv_hour1, minute=recv_minute1, id=recv_id1, args=['Simple Message', recv_bandwidth1])
+
+            # Second change
+            scheduler.add_job(change_bandwidth, 'cron', day_of_week=recv_day_of_week,
+                              hour=recv_hour2, minute=recv_minute2, id=recv_id2, args=['Simple Message', recv_bandwidth2])
+            return "Add job Success\n"
+        except Exception as e:
+            return e
     else:
         return '404'
 
@@ -84,6 +116,7 @@ def main(*args, **kwargs):
     scheduler.add_jobstore('sqlalchemy', url=url)
     print('To clear the alarms, delete the hello.sqlite3 file.')
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
+    scheduler.start()
     try:
         if sys.argv[1] == 'debug':
             app.debug = True
