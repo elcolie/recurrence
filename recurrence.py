@@ -1,25 +1,10 @@
 import os, sys
 from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import timedelta, datetime
 from flask import Flask, json, request
-
+from utility import notify
 
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
-
-"""
-    Sample Case : 8:00 down bandwidth to 5, then 18:00 up bandwidth to 10
-    Sending :
-    Receive JSON type : { "bandwidth" : 5 , "start_time"}
-    curl -H "Content-Type: application/json" -X POST -d '{"schedule_type":"recurrence", "month" : ['Jan', 'Dec'], "start_time": "17:00""schedule_days": [1, 3, 5, 7]"stop_type" : "period","lifetime_quantity" : 1,"lifetime_unit" : "day","current_bandwidth" : 5,"new_bandwidth" : 10}' http://localhost:5000/recurrence/create
-"""
-
-
-def change_bandwidth(description_message: str or None,
-                     bandwidth: int or None):
-    temp_str = "'{0}' : '{1}'".format(description_message, bandwidth)
-    print(temp_str)
-
 
 @app.route('/recurrence/start', methods=['GET'])
 def start_scheduler():
@@ -39,76 +24,88 @@ def stop_scheduler():
     return 'Scheduler Shutdown\n'
 
 
-@app.route('/recurrence/', methods=['GET'])
+@app.route('/recurrence', methods=['GET'])
 def list_job():
     """List all jobs
+    Input : No input
+    Output : string of list contains dictionary id as a key and name as a value
     Usage : curl http://locahost:5000/recurrence
     """
-    list_jobs = scheduler.print_jobs()
-    temp_str = str(list_jobs) + '\n' # Wonder why it has None return
-    return temp_str
-
+    f = open('workfile.txt','w')    # Example how to visualize construcion details
+    scheduler.print_jobs(out=f)
+    joblist = scheduler.get_jobs()
+    new_list = []
+    for i in joblist:
+        data = {"id": i.id, "name": i.name}
+        new_list.append(data)
+    return str(new_list)
 
 @app.route('/recurrence/create', methods=['POST'])
 def create_job():
     """Create a job
-    First Receiving the JSON order.
-    Second Decompose in to 2 jobs.
-        1. Start changing bandwidth and
-        2. Start undoing bandwidth
-    Usage:
-    curl -H "Content-Type: application/json" -X POST -d '{"schedule_type":"recurrecen","day_of_week":"mon,wed,fri","start_time":"06:00","bandwidth1": 10,"end_time":"18:00","bandwidth2":20}' http://localhost:5000/recurrence/create
-    Input : JSON
-    Apscheduler will create 2 josb base on given id
+    Input : name, day_of_week, start_time
+    Output : id, name
+    Usage : curl -H "Content-Type: application/json" -X POST -d '{"name":"Good Evening", "day_of_week":"sun", "start_time":"17:17"}' http://localhost:5000/recurrence/create
     """
     if request.method == 'POST':
-        recv_schedule_type = request.json['schedule_type']
         recv_day_of_week = request.json['day_of_week']
-
         recv_start_time = request.json['start_time']
-        recv_hour1, recv_minute1 = recv_start_time.split(':')
-        recv_hour1, recv_minute1 = int(recv_hour1), int(recv_minute1)
-        recv_bandwidth1 = request.json['bandwidth1']
-
-        recv_end_time = request.json['end_time']
-        recv_hour2, recv_minute2 = recv_end_time.split(':')
-        recv_hour2, recv_minute2 = int(recv_hour2), int(recv_minute2)
-        recv_bandwidth2 = request.json['bandwidth2']
-
-        recv_id1 = "'{0}'-'{1}'-'start : '{2}'-'{3}' Mbps".format(recv_schedule_type, recv_day_of_week, recv_start_time, recv_bandwidth1)
-        recv_id2 = "'{0}'-'{1}'-'start : {2}'-'{3}' Mbps".format(recv_schedule_type, recv_day_of_week, recv_end_time, recv_bandwidth2)
-
+        recv_start_hour, recv_start_minute = recv_start_time.split(':')
+        recv_start_hour, recv_start_minute = int(recv_start_hour), int(recv_start_minute)
+        recv_name = request.json['name']
         try:
-            # First change
-            scheduler.add_job(change_bandwidth, 'cron', day_of_week=recv_day_of_week,
-                              hour=recv_hour1, minute=recv_minute1, id=recv_id1, args=['Simple Message', recv_bandwidth1])
-
-            # Second change
-            scheduler.add_job(change_bandwidth, 'cron', day_of_week=recv_day_of_week,
-                              hour=recv_hour2, minute=recv_minute2, id=recv_id2, args=['Simple Message', recv_bandwidth2])
-            return "Add job Success\n"
+            job_instance = scheduler.add_job(notify, 'cron', day_of_week=recv_day_of_week, hour=recv_start_hour, minute=recv_start_minute, name=recv_name)
+            data = { "id" : job_instance.id,
+                     "jname" : job_instance.name}
+            return str(data)
         except Exception as e:
             return e
     else:
-        return '404'
+        return '404 method is not POST\n'
 
 
 @app.route('/recurrence/edit', methods=['PUT'])
 def edit_job():
     """Edit a job
-    Usage: curl http://localhost:5000/recurrence/edit
-    Input : JSON
+    Input : id, name, day_of_week, start_time
+    Output : id
+    Usage : curl -H "Content-Type: application/json" -X POST -d '{"id": "dc3d9acb052e47c9be310253937d644e","name":"Good Night", "day_of_week":"mon,sun,sat", "start_time":"18:18"}' http://localhost:5000/recurrence/create
     """
-    return "Job Edited"
+    if request.method == 'PUT':
+        recv_id = request.json['id']
+        recv_day_of_week = request.json['day_of_week']
+        recv_start_time = request.json['start_time']
+        recv_start_hour, recv_start_minute = recv_start_time.split(':')
+        recv_start_hour, recv_start_minute = int(recv_start_hour), int(recv_start_minute)
+        recv_name = request.json['name']
+        try:
+            job_instance = scheduler.reschedule_job(recv_id, trigger='cron', day_of_week=recv_day_of_week, hour=recv_start_hour, minute=recv_start_minute, name=recv_name)
+            data = {"id": job_instance.id,
+                    "jname": job_instance.name}
+            return str(data)
+        except Exception as e:
+            return str(e)
+    else:
+        return '404 method is not PUT\n'
 
 
 @app.route('/recurrence/delete', methods=['DELETE'])
 def delete_job():
     """Create a job
-    Usage: curl http://localhost:5000/recurrence/delete
-    Input : JSON
+    Input : id
+    Output : Plain text
+    Usage : curl -H "Content-Type: application/json" -X POST -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/delete
     """
-    return "Job Deleted"
+    if request.method == 'DELETE':
+        recv_id = request.json['id']
+        try:
+            scheduler.remove_job(recv_id)
+            temp_str = "'{0}' is deleted\n".format(recv_id)
+            return temp_str
+        except Exception as e:
+            return str(e)
+    else:
+        return '404 method is not DELETE\n'
 
 
 def main(*args, **kwargs):
@@ -118,8 +115,10 @@ def main(*args, **kwargs):
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
     scheduler.start()
     try:
-        if sys.argv[1] == 'debug':
+        if len(sys.argv) > 2 and sys.argv[1] == 'debug':
             app.debug = True
+        else:
+            app.debug = False
         app.run(host='localhost')
     except (KeyboardInterrupt, SystemExit):
         print("Scheduler Stop")
