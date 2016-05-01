@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
 import os, sys
 
 from flask import Flask, json, request
-from apscheduler.schedulers.background import BackgroundScheduler
+from utility import scheduler, change_bandwidth, example_cron, example_date, example_interval
+
 
 app = Flask(__name__)
 
@@ -13,43 +13,23 @@ app = Flask(__name__)
     curl -H "Content-Type: application/json" -X POST -d '{"schedule_type":"recurrence", "month" : ['Jan', 'Dec'], "start_time": "17:00""schedule_days": [1, 3, 5, 7]"stop_type" : "period","lifetime_quantity" : 1,"lifetime_unit" : "day","current_bandwidth" : 5,"new_bandwidth" : 10}' http://localhost:5000/recurrence/create
 """
 
-scheduler = BackgroundScheduler()
-
-
-def change_bandwidth():
-    print('Bandwidth Changed')
-
-
-def example_cron():
-    """
-    http://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html#module-apscheduler.triggers.cron
-    """
-    print('Cron schedule has been scheduled')
-
-
-def example_date():
-    """
-    http://apscheduler.readthedocs.io/en/latest/modules/triggers/date.html#module-apscheduler.triggers.date
-    """
-    alarm_time = datetime.now() + timedelta(seconds=10)
-    print('One time date has been scheduled')
-
-
-def example_interval():
-    """
-    http://apscheduler.readthedocs.io/en/latest/modules/triggers/interval.html#module-apscheduler.triggers.interval
-    """
-    scheduler.add_job(change_bandwidth, 'interval', seconds=3)
-    print('Alarm! This alarm was scheduled')
-
 
 @app.route('/recurrence/start', methods=['GET'])
-def hello_world():
+def start_scheduler():
     """Get system up from crash or shutdown
-    Usage: curl http://localhost:5000/recurrence
+    Usage: curl http://localhost:5000/recurrence/start
     """
     scheduler.start()
-    return 'Hello, Scheduler Started\n'  # It is an ordinary response! LoL
+    return 'Scheduler Started\n'
+
+
+@app.route('/recurrence/shutdown', methods=['GET'])
+def stop_scheduler():
+    """
+    Shutdown will not be able to start again by REST APIs
+    """
+    scheduler.shutdown()
+    return 'Scheduler Shutdown\n'
 
 
 @app.route('/recurrence/', methods=['GET'])
@@ -57,20 +37,26 @@ def list_job():
     """List all jobs
     Usage : curl http://locahost:5000/recurrence
     """
-    return "List all jobs\n"
+    list_jobs = scheduler.print_jobs()
+    temp_str = str(list_jobs) + '\n' # Wonder why it has None return
+    return temp_str
 
 
 @app.route('/recurrence/create', methods=['POST'])
 def create_job():
     """Create a job
     Usage: curl -H "Content-Type: application/json" -X POST -d '{"key":"value"}' http://localhost:5000/recurrence/create
+    curl -H "Content-Type: application/json" -X POST -d '{"id":"C101", "seconds":3, "bandwidth":21}' http://localhost:5000/recurrence/create
     Input : JSON
     """
-    # data = request.json
-    # import pdb; pdb.set_trace()
     if request.method == 'POST':
-        data = str(request.json)
-        return data
+        recv_id = request.json['id'] # Choose wisly to be brief and concise meaning
+        recv_seconds = request.json['seconds']
+        recv_bandwidth = request.json['bandwidth']
+        # import pdb; pdb.set_trace()
+
+        scheduler.add_job(change_bandwidth, 'interval', seconds=recv_seconds, id=recv_id, args=[recv_bandwidth])
+        return str(request.json)
     else:
         return '404'
 
