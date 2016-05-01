@@ -1,13 +1,13 @@
 # recurrence
 RESTful backend APIs UIH portal
 
-Normal run :
+## Normal run :
 python recurrence.py
 
-Debuggin mode :
+## Debuggin mode :
 python recurrence.py debug
 
-CRUD
+## CRUD
 Create :
 curl -H "Content-Type: application/json" -X POST -d '{"name":"Good Evening", "day_of_week":"sun", "start_time":"17:17"}' http://localhost:5000/recurrence/create
 
