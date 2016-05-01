@@ -29,7 +29,7 @@ def list_job():
     """List all jobs
     Input : No input
     Output : string of list contains dictionary id as a key and name as a value
-    Usage : curl http://locahost:5000/recurrence
+    Usage : curl http://localhost:5000/recurrence
     """
     f = open('workfile.txt','w')    # Example how to visualize construcion details
     scheduler.print_jobs(out=f)
