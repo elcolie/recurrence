@@ -4,7 +4,7 @@ RESTful backend APIs UIH portal
 ## Normal run :
 python recurrence.py
 
-## Debuggin mode :
+## Debugging mode :
 python recurrence.py debug
 
 ## CRUD
@@ -18,8 +18,8 @@ curl http://localhost:5000/recurrence
 
 **Update :**
 
-curl -H "Content-Type: application/json" -X POST -d '{"id": "dc3d9acb052e47c9be310253937d644e","name":"Good Night", "day_of_week":"mon,sun,sat", "start_time":"18:18"}' http://localhost:5000/recurrence/create
+curl -H "Content-Type: application/json" -X PUT -d '{"id": "dc3d9acb052e47c9be310253937d644e","name":"Good Night", "day_of_week":"mon,sun,sat", "start_time":"18:18"}' http://localhost:5000/recurrence/edit
 
 **Delete:**
 
-curl -H "Content-Type: application/json" -X POST -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/delete
+curl -H "Content-Type: application/json" -X DELETE -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/delete
