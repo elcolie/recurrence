@@ -1,15 +1,12 @@
 import os
 import sys
-import uuid
-from datetime import datetime
-
-import flask
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request
 from flask_restful import Resource, Api
 from datetime import datetime
 
 from utility import notify, return_data
+from days_and_units_list import days_and_units_list
 
 app = Flask(__name__)
 api = Api(app)
@@ -106,13 +103,35 @@ class Recurrence(Resource):
 
     def validate_days(self, recv_days):
         """Decapitalise acronym and Eliminate duplication"""
-        days_list = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+        days_list = days_and_units_list.days_list
         for i in range(len(recv_days)):
             recv_days[i] = recv_days[i].lower()
             if recv_days[i] not in days_list:
                 return False
         self.recv_days = set(recv_days)
         return True
+
+    def validate_trigger_time(self, recv_trigger_time):
+        try:
+            datetime.strptime(recv_trigger_time, "%H:%M")
+            return True
+        except ValueError:
+            return False
+
+    def validate_duration(self, recv_duration):
+        self.recv_duration = int(recv_duration)
+        if recv_duration > 0:
+            return True
+        else:
+            return False
+
+    def validate_duration_unit(self, recv_duration_unit):
+        units_list = days_and_units_list.units_list
+        recv_duration_unit = recv_duration_unit.lower()
+        if recv_duration_unit in units_list:
+            return True
+        else:
+            return False
 
     def post(self):
 
@@ -151,9 +170,16 @@ class Recurrence(Resource):
                 self.errors["invalid_inputs"].append("start_datetime is invalid format")
             if self.validate_datetime(self.recv_end_datetime) is False:
                 self.errors["invalid_inputs"].append("end_datetime is invalid format")
-            # import pdb;pdb.set_trace()
             if self.validate_days(self.recv_days) is False:
                 self.errors["invalid_inputs"].append("days is invalid format")
+            if self.validate_trigger_time(self.recv_trigger_time) is False:
+                self.errors["invalid_inputs"].append("trigger_time is invalid format")
+            if self.validate_duration(self.recv_duration) is False:
+                self.errors["invalid_inputs"].append("duration must not be a negative value")
+            # import pdb;pdb.set_trace()
+            if self.validate_duration_unit(self.recv_duration_unit) is False:
+                self.errors["invalid_inputs"].append("duration_unit are one of " + str(days_and_units_list.units_list))
+
             if len(self.errors["invalid_inputs"]) > 0:
                 return self.errors, 400
             else:
