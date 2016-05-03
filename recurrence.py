@@ -83,17 +83,25 @@ def list_job():
 
 
 class Recurrence(Resource):
+    def validate_datetime(start_datetime, errors):
+        # list = start_datetime.split('-')
+        # year, month = list[0], list[1]
+        # if year < 0:
+        #     errors["Invalid_inputs"].append("Year must not be negative")
+        # if month <0 or month > 12:
+        #     errors["Invalid_inputs"].append("Month must between 1 to 12")
+        return errors, 400
+
     def post(self):
 
         json = request.json
-        import pdb; pdb.set_trace()
-        recv_start_datetime = request.json.get('start_datetime')
-        recv_end_datetime = request.json.get('end_datetime')
-        # recv_days = request.json.getlist('days')
-        # recv_trigger_time   = request.json.get('trigger_time')
-        # recv_duration       = request.json.get('duration')
-        # recv_duration_unit  = request.json.get('duration_unit')
-        # recv_trigger_identifiers = request.json.getlist('trigger_identifiers')
+        recv_start_datetime = json.get('start_datetime')
+        recv_end_datetime = json.get('end_datetime')
+        recv_days = json.get('days')
+        recv_trigger_time   = json.get('trigger_time')
+        recv_duration       = json.get('duration')
+        recv_duration_unit  = json.get('duration_unit')
+        recv_trigger_identifiers = json.get('trigger_identifiers')
 
         errors = {
             "required_fields_missing": []
@@ -102,29 +110,54 @@ class Recurrence(Resource):
             errors["required_fields_missing"].append("start_datetime")
         if recv_end_datetime is None:
             errors["required_fields_missing"].append("end_datetime")
-        # if recv_days is None:
-        #     errors["required_fields_missing"].append("days")
-        # if recv_trigger_time is None:
-        #     errors["required_fields_missing"].append("trigger_time")
-        # if recv_duration is None:
-        #     errors["required_fields_missing"].append("duration")
-        # if recv_duration_unit is None:
-        #     errors["required_fields_missing"].append("duration_unit")
-        # if recv_trigger_identifiers is None:
-        #     errors["required_fields_missing"].append("trigger_identifiers")
+        if recv_days is None:
+            errors["required_fields_missing"].append("days")
+        if recv_trigger_time is None:
+            errors["required_fields_missing"].append("trigger_time")
+        if recv_duration is None:
+            errors["required_fields_missing"].append("duration")
+        if recv_duration_unit is None:
+            errors["required_fields_missing"].append("duration_unit")
+        if recv_trigger_identifiers is None:
+            errors["required_fields_missing"].append("trigger_identifiers")
         if len(errors["required_fields_missing"]) > 0:
             return errors, 400
         else:
+            # All field are present
+            errors.pop("required_fields_missing", None)
+            errors["Invalid_inputs"] = []
+
+            from datetime import datetime
+            tmp_input = recv_start_datetime
+            temp_list = []
+            temp_list = tmp_input.split('-')
+            import pdb;
+            pdb.set_trace()
+            year = int(temp_list[0])
+            month = int(temp_list[1])
+            temp_day = temp_list[2]
+            day = int(temp_day.split()[0])
+            if year < 0:
+                errors["Invalid_inputs"].append("Year must not be negative")
+            if month < 0 or month > 12:
+                errors["Invalid_inputs"].append("Month must between 1 to 12")
+            # recv_start_datetime = datetime.strptime(recv_start_datetime, '%Y-%m-%d %H:%M')
+            if day < 0 or day > 31:
+                errors["Invalid_inputs"].append("Day must between 1 to 31")
+
+            if len(errors["Invalid_inputs"]) > 0:
+                return errors, 400
+
             return {}, 200
 
-@app.route('/recurrence/days', methods=['POST'])
-def create_job():
-    """Create a job
-    Input : start_datetime, end_datetime, days, trigger_time, duration, duration_unit, trigger_identifiers
-    Output : status, json
-    Usage : curl -H "Content-Type: application/json" -X POST -d '{"start_datetime":"2003-03-03 03:03", "end_datetime":"2004-04-04 04:04", "days":['fri','wed'], "trigger_time":"06:06", "duration":1, "duration_unit":'days', trigger_identifiers:['ac97682c-c81e-4170-bb46-8301df317587', 'c28288c0-e24c-4a02-b047-c807bd6df3cc']}' http://localhost:5000/recurrence/days
-    curl -H "Content-Type: application/json" -X POST -d '{"start_datetime":"2003-03-03 03:03"}' http://localhost:5000/recurrence/days
-    """
+# @app.route('/recurrence/days', methods=['POST'])
+# def create_job():
+#     """Create a job
+#     Input : start_datetime, end_datetime, days, trigger_time, duration, duration_unit, trigger_identifiers
+#     Output : status, json
+#     Usage : curl -H "Content-Type: application/json" -X POST -d '{"start_datetime":"2003-03-03 03:03", "end_datetime":"2004-04-04 04:04", "days":['fri','wed'], "trigger_time":"06:06", "duration":1, "duration_unit":'days', trigger_identifiers:['ac97682c-c81e-4170-bb46-8301df317587', 'c28288c0-e24c-4a02-b047-c807bd6df3cc']}' http://localhost:5000/recurrence/days
+#     curl -H "Content-Type: application/json" -X POST -d '{"start_datetime":"2003-03-03 03:03"}' http://localhost:5000/recurrence/days
+#     """
     # Checking JSON POST key.
 
 
