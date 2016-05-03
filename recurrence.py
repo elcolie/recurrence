@@ -128,15 +128,13 @@ class Recurrence(Resource):
             errors["Invalid_inputs"] = []
 
             from datetime import datetime
-            tmp_input = recv_start_datetime
-            temp_list = []
-            temp_list = tmp_input.split('-')
-            import pdb;
-            pdb.set_trace()
-            year = int(temp_list[0])
-            month = int(temp_list[1])
-            temp_day = temp_list[2]
-            day = int(temp_day.split()[0])
+            tmp_input   = recv_start_datetime
+            [ymd, time] = tmp_input.split()
+            [year, month, day]  = ymd.split('-')
+            [hour, minute]  = time.split(':')
+            # import pdb;
+            # pdb.set_trace()
+            year, month, day, hour, minute = int(year), int(month), int(day), int(hour), int(minute)
             if year < 0:
                 errors["Invalid_inputs"].append("Year must not be negative")
             if month < 0 or month > 12:
@@ -144,7 +142,10 @@ class Recurrence(Resource):
             # recv_start_datetime = datetime.strptime(recv_start_datetime, '%Y-%m-%d %H:%M')
             if day < 0 or day > 31:
                 errors["Invalid_inputs"].append("Day must between 1 to 31")
-
+            if hour < 0 or hour > 23:
+                errors["Invalid_inputs"].append("Hour must between 0 to 23")
+            if minute < 0 or minute > 59:
+                errors["Invalid_inputs"].append("Minute must between 0 to 59")
             if len(errors["Invalid_inputs"]) > 0:
                 return errors, 400
 
