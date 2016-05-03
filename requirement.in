@@ -1,3 +1,7 @@
 apscheduler
 SQLAlchemy
 flask
+Flask-API
+flask-restful
+markdown
+requests
