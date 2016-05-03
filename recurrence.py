@@ -7,6 +7,7 @@ import flask
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request
 from flask_restful import Resource, Api
+from datetime import datetime
 
 from utility import notify, return_data
 
@@ -83,73 +84,80 @@ def list_job():
 
 
 class Recurrence(Resource):
-    def validate_datetime(start_datetime, errors):
-        # list = start_datetime.split('-')
-        # year, month = list[0], list[1]
-        # if year < 0:
-        #     errors["Invalid_inputs"].append("Year must not be negative")
-        # if month <0 or month > 12:
-        #     errors["Invalid_inputs"].append("Month must between 1 to 12")
-        return errors, 400
+
+    json                = None
+    recv_start_datetime = None
+    recv_end_datetime   = None
+    recv_days           = None
+    recv_trigger_time   = None
+    recv_duration       = None
+    recv_duration_unit  = None
+    recv_trigger_identifiers = None
+    errors              = None
+
+
+    def validate_datetime(self, recv_start_datetime):
+        """Use datetime.strptime() constructor validate the calendar"""
+        try:
+            datetime.strptime(recv_start_datetime, '%Y-%m-%d %H:%M')
+            return True
+        except ValueError:
+            return False
+
+    def validate_days(self, recv_days):
+        """Decapitalise acronym and Eliminate duplication"""
+        days_list = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+        for i in range(len(recv_days)):
+            recv_days[i] = recv_days[i].lower()
+            if recv_days[i] not in days_list:
+                return False
+        self.recv_days = set(recv_days)
+        return True
 
     def post(self):
 
-        json = request.json
-        recv_start_datetime = json.get('start_datetime')
-        recv_end_datetime = json.get('end_datetime')
-        recv_days = json.get('days')
-        recv_trigger_time   = json.get('trigger_time')
-        recv_duration       = json.get('duration')
-        recv_duration_unit  = json.get('duration_unit')
-        recv_trigger_identifiers = json.get('trigger_identifiers')
-
-        errors = {
-            "required_fields_missing": []
+        self.json                   = request.json
+        self.recv_start_datetime    = self.json.get('start_datetime')
+        self.recv_end_datetime      = self.json.get('end_datetime')
+        self.recv_days              = self.json.get('days')
+        self.recv_trigger_time      = self.json.get('trigger_time')
+        self.recv_duration          = self.json.get('duration')
+        self.recv_duration_unit     = self.json.get('duration_unit')
+        self.recv_trigger_identifiers = self.json.get('trigger_identifiers')
+        self.errors = {
+            "required_fields_missing": [],
+            "invalid_inputs": []
         }
-        if recv_start_datetime is None:
-            errors["required_fields_missing"].append("start_datetime")
-        if recv_end_datetime is None:
-            errors["required_fields_missing"].append("end_datetime")
-        if recv_days is None:
-            errors["required_fields_missing"].append("days")
-        if recv_trigger_time is None:
-            errors["required_fields_missing"].append("trigger_time")
-        if recv_duration is None:
-            errors["required_fields_missing"].append("duration")
-        if recv_duration_unit is None:
-            errors["required_fields_missing"].append("duration_unit")
-        if recv_trigger_identifiers is None:
-            errors["required_fields_missing"].append("trigger_identifiers")
-        if len(errors["required_fields_missing"]) > 0:
-            return errors, 400
+        # Check fields are given.
+        if self.recv_start_datetime is None:
+            self.errors["required_fields_missing"].append("start_datetime")
+        if self.recv_end_datetime is None:
+            self.errors["required_fields_missing"].append("end_datetime")
+        if self.recv_days is None:
+            self.errors["required_fields_missing"].append("days")
+        if self.recv_trigger_time is None:
+            self.errors["required_fields_missing"].append("trigger_time")
+        if self.recv_duration is None:
+            self.errors["required_fields_missing"].append("duration")
+        if self.recv_duration_unit is None:
+            self.errors["required_fields_missing"].append("duration_unit")
+        if self.recv_trigger_identifiers is None:
+            self.errors["required_fields_missing"].append("trigger_identifiers")
+        if len(self.errors["required_fields_missing"]) > 0:
+            return self.errors, 400
         else:
-            # All field are present
-            errors.pop("required_fields_missing", None)
-            errors["Invalid_inputs"] = []
-
-            from datetime import datetime
-            tmp_input   = recv_start_datetime
-            [ymd, time] = tmp_input.split()
-            [year, month, day]  = ymd.split('-')
-            [hour, minute]  = time.split(':')
-            # import pdb;
-            # pdb.set_trace()
-            year, month, day, hour, minute = int(year), int(month), int(day), int(hour), int(minute)
-            if year < 0:
-                errors["Invalid_inputs"].append("Year must not be negative")
-            if month < 0 or month > 12:
-                errors["Invalid_inputs"].append("Month must between 1 to 12")
-            # recv_start_datetime = datetime.strptime(recv_start_datetime, '%Y-%m-%d %H:%M')
-            if day < 0 or day > 31:
-                errors["Invalid_inputs"].append("Day must between 1 to 31")
-            if hour < 0 or hour > 23:
-                errors["Invalid_inputs"].append("Hour must between 0 to 23")
-            if minute < 0 or minute > 59:
-                errors["Invalid_inputs"].append("Minute must between 0 to 59")
-            if len(errors["Invalid_inputs"]) > 0:
-                return errors, 400
-
-            return {}, 200
+            # All field are present. Then validate the inputs.
+            if self.validate_datetime(self.recv_start_datetime) is False:
+                self.errors["invalid_inputs"].append("start_datetime is invalid format")
+            if self.validate_datetime(self.recv_end_datetime) is False:
+                self.errors["invalid_inputs"].append("end_datetime is invalid format")
+            # import pdb;pdb.set_trace()
+            if self.validate_days(self.recv_days) is False:
+                self.errors["invalid_inputs"].append("days is invalid format")
+            if len(self.errors["invalid_inputs"]) > 0:
+                return self.errors, 400
+            else:
+                return {}, 200
 
 # @app.route('/recurrence/days', methods=['POST'])
 # def create_job():
