@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 
 
-def notify():
+def notify(job_id=None):
     temp_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    temp_str = "Notification alarms '{0}' ".format(temp_datetime)
+    temp_str = "Notification alarms '{0}' '{1}'".format(temp_datetime, job_id)
     print(temp_str)
 
 
