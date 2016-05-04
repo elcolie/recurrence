@@ -3,10 +3,14 @@ import sys
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request
 from flask_restful import Resource, Api
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from utility import notify, return_data
-from days_and_units_list import days_and_units_list
+from dateutil.relativedelta import *
+from dateutil.easter import *
+from dateutil.rrule import *
+from dateutil.parser import *
+from daysandunitslist import DaysAndUnitsList
 
 app = Flask(__name__)
 api = Api(app)
@@ -83,27 +87,27 @@ def list_job():
 class Recurrence(Resource):
 
     json                = None
-    recv_start_datetime = None
-    recv_end_datetime   = None
+    recv_start_date = None
+    recv_end_date   = None
     recv_days           = None
     recv_trigger_time   = None
     recv_duration       = None
     recv_duration_unit  = None
     recv_trigger_identifiers = None
     errors              = None
+    job_name            = None
 
-
-    def validate_datetime(self, recv_start_datetime):
+    def validate_date(self, recv_start_date):
         """Use datetime.strptime() constructor validate the calendar"""
         try:
-            datetime.strptime(recv_start_datetime, '%Y-%m-%d %H:%M')
+            datetime.strptime(recv_start_date, '%Y-%m-%d')
             return True
         except ValueError:
             return False
 
     def validate_days(self, recv_days):
         """Decapitalise acronym and Eliminate duplication"""
-        days_list = days_and_units_list.days_list
+        days_list = DaysAndUnitsList.days_list
         for i in range(len(recv_days)):
             recv_days[i] = recv_days[i].lower()
             if recv_days[i] not in days_list:
@@ -112,6 +116,7 @@ class Recurrence(Resource):
         return True
 
     def validate_trigger_time(self, recv_trigger_time):
+        """24 hours, 59 minutes"""
         try:
             datetime.strptime(recv_trigger_time, "%H:%M")
             return True
@@ -119,6 +124,7 @@ class Recurrence(Resource):
             return False
 
     def validate_duration(self, recv_duration):
+        """No negative value"""
         self.recv_duration = int(recv_duration)
         if recv_duration > 0:
             return True
@@ -126,18 +132,99 @@ class Recurrence(Resource):
             return False
 
     def validate_duration_unit(self, recv_duration_unit):
-        units_list = days_and_units_list.units_list
+        """Decapitalize and check in units_list"""
+        units_list = DaysAndUnitsList.units_list
         recv_duration_unit = recv_duration_unit.lower()
         if recv_duration_unit in units_list:
             return True
         else:
             return False
 
-    def post(self):
+    def validate_trigger_identifiers(self, recv_trigger_identifiers):
+        """Accept 2 identifiers per time"""
+        if isinstance(recv_trigger_identifiers, list) is False:
+            return False
+        if len(recv_trigger_identifiers) > 2:
+            return False
+        return True
 
+    def get_start_hours_and_minutes(self):
+        my_hour = datetime.strptime(self.recv_trigger_time, '%H:%M')
+        hour, minute = my_hour.hour, my_hour.minute
+        return hour, minute
+
+    def get_end_hours_and_minutes(self, duration, duration_unit):
+        """delta_time is intentionally to use with duration"""
+        if duration_unit == 'minutes':
+            return relativedelta(minutes=duration)
+        elif duration_unit == 'hours':
+            return relativedelta(hours=duration)
+        elif duration_unit == 'days':
+            return relativedelta(days=duration)
+
+    def addjob(self):
+
+        temp_str = ""
+        for i in self.recv_days:    #set(['mon', 'tue'])
+            temp_str += i + ','
+        days_of_week = temp_str[:len(temp_str)-1]   # "mon,tue"
+        start_hour, start_minute = self.get_start_hours_and_minutes()
+        first_job = scheduler.add_job(notify,
+                                      'cron',
+                                      id=self.recv_trigger_identifiers[0],
+                                      day_of_week=days_of_week,
+                                      hour=start_hour,
+                                      minute=start_minute,
+                                      args=[self.recv_trigger_identifiers[0]])
+        # second job
+        end_datetimes_list = []
+        for i in self.recv_days:
+            if i == "mon":
+                ref_monday = datetime(2016, 5, 2, start_hour, start_minute)  # ref_monday.weekday() = 0;
+                nexttime = ref_monday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+            if i == "tue":
+                ref_tueday = datetime(2016, 5, 3, start_hour, start_minute)  # ref_tueday.weekday() = 1;
+                nexttime = ref_tueday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+            if i == "wed":
+                ref_wedday = datetime(2016, 5, 4, start_hour, start_minute)  # ref_wedday.weekday() = 2;
+                nexttime = ref_wedday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+            if i == "thu":
+                ref_thuday = datetime(2016, 5, 5, start_hour, start_minute)  # ref_thuday.weekday() = 3;
+                nexttime = ref_thuday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+            if i == "fri":
+                ref_friday = datetime(2016, 5, 6, start_hour, start_minute)  # ref_friday.weekday() = 4;
+                nexttime = ref_friday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+            if i == "sat":
+                ref_satday = datetime(2016, 5, 7, start_hour, start_minute)  # ref_satday.weekday() = 5;
+                nexttime = ref_satday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+            if i == "sun":
+                ref_sunday = datetime(2016, 5, 8, start_hour, start_minute)  # ref_sunday.weekday() = 6n;
+                nexttime = ref_sunday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
+                end_datetimes_list.append(nexttime)
+        # import pdb;
+        # pdb.set_trace()
+        days_of_week_str = ""
+        for day in end_datetimes_list:
+            days_of_week_str += str(day.weekday()) + ','
+        days_of_week_str = days_of_week_str[:len(days_of_week_str)-1]   # Delete last comma
+        end_hour, end_minute = end_datetimes_list[0].hour, end_datetimes_list[0].minute
+        second_job = scheduler.add_job(notify,
+                                      'cron',
+                                      id=self.recv_trigger_identifiers[1],
+                                      day_of_week=days_of_week_str,
+                                      hour=end_hour,
+                                      minute=end_minute,
+                                      args=[self.recv_trigger_identifiers[1]])
+    def post(self):
         self.json                   = request.json
-        self.recv_start_datetime    = self.json.get('start_datetime')
-        self.recv_end_datetime      = self.json.get('end_datetime')
+        self.recv_start_date        = self.json.get('start_datetime')
+        self.recv_end_date          = self.json.get('end_datetime')
         self.recv_days              = self.json.get('days')
         self.recv_trigger_time      = self.json.get('trigger_time')
         self.recv_duration          = self.json.get('duration')
@@ -148,10 +235,11 @@ class Recurrence(Resource):
             "invalid_inputs": []
         }
         # Check fields are given.
-        if self.recv_start_datetime is None:
+        if self.recv_start_date is None:
             self.errors["required_fields_missing"].append("start_datetime")
-        if self.recv_end_datetime is None:
-            self.errors["required_fields_missing"].append("end_datetime")
+        if self.recv_end_date is None:
+            """Means forever"""
+            self.recv_end_date = "2099-1-1"
         if self.recv_days is None:
             self.errors["required_fields_missing"].append("days")
         if self.recv_trigger_time is None:
@@ -166,9 +254,9 @@ class Recurrence(Resource):
             return self.errors, 400
         else:
             # All field are present. Then validate the inputs.
-            if self.validate_datetime(self.recv_start_datetime) is False:
+            if self.validate_date(self.recv_start_date) is False:
                 self.errors["invalid_inputs"].append("start_datetime is invalid format")
-            if self.validate_datetime(self.recv_end_datetime) is False:
+            if self.validate_date(self.recv_end_date) is False:
                 self.errors["invalid_inputs"].append("end_datetime is invalid format")
             if self.validate_days(self.recv_days) is False:
                 self.errors["invalid_inputs"].append("days is invalid format")
@@ -176,51 +264,15 @@ class Recurrence(Resource):
                 self.errors["invalid_inputs"].append("trigger_time is invalid format")
             if self.validate_duration(self.recv_duration) is False:
                 self.errors["invalid_inputs"].append("duration must not be a negative value")
-            # import pdb;pdb.set_trace()
             if self.validate_duration_unit(self.recv_duration_unit) is False:
-                self.errors["invalid_inputs"].append("duration_unit are one of " + str(days_and_units_list.units_list))
-
+                self.errors["invalid_inputs"].append("duration_unit are one of " + str(DaysAndUnitsList.units_list))
+            if self.validate_trigger_identifiers(self.recv_trigger_identifiers) is False:
+                self.errors["invalid_inputs"].append("trigger_identifiers must not has more than 2")
             if len(self.errors["invalid_inputs"]) > 0:
                 return self.errors, 400
             else:
+                self.addjob()
                 return {}, 200
-
-# @app.route('/recurrence/days', methods=['POST'])
-# def create_job():
-#     """Create a job
-#     Input : start_datetime, end_datetime, days, trigger_time, duration, duration_unit, trigger_identifiers
-#     Output : status, json
-#     Usage : curl -H "Content-Type: application/json" -X POST -d '{"start_datetime":"2003-03-03 03:03", "end_datetime":"2004-04-04 04:04", "days":['fri','wed'], "trigger_time":"06:06", "duration":1, "duration_unit":'days', trigger_identifiers:['ac97682c-c81e-4170-bb46-8301df317587', 'c28288c0-e24c-4a02-b047-c807bd6df3cc']}' http://localhost:5000/recurrence/days
-#     curl -H "Content-Type: application/json" -X POST -d '{"start_datetime":"2003-03-03 03:03"}' http://localhost:5000/recurrence/days
-#     """
-    # Checking JSON POST key.
-
-
-
-    # recv_start_time = request.json['start_time']
-    # recv_start_hour, recv_start_minute = recv_start_time.split(':')
-    # recv_start_hour, recv_start_minute = int(recv_start_hour), int(recv_start_minute)
-    # recv_name = request.json['name']
-    # uuid4_rand_str = str(uuid.uuid4())
-    # import pdb;pdb.set_trace()
-    # try:
-    #     job_instance = scheduler.add_job(notify,
-    #                                      'cron',
-    #                                      id=uuid4_rand_str,
-    #                                      year=2016,
-    #                                      month="jun",
-    #                                      day_of_week=recv_day_of_week,
-    #                                      hour=recv_start_hour,
-    #                                      minute=recv_start_minute,
-    #                                      name=recv_name,
-    #                                      args=[uuid4_rand_str])
-    #     data = return_data(True, in_instance=job_instance)
-    #     return data
-    #
-    # except Exception as e:
-    #     data = return_data(False, error_message=e)
-    #     return data
-
 
 @app.route('/recurrence', methods=['PUT'])
 def edit_job():

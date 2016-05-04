@@ -1,12 +1,9 @@
 from datetime import datetime, timedelta
+import requests
 
-
+url = 'localhost:8099/scheduled-bod'
 def notify(job_id=None):
-    temp_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    temp_str = "Notification alarms '{0}' '{1}'".format(temp_datetime, job_id)
-    print(temp_str)
-
-
+    r = requests.post('http://localhost:9000/scheduled-bod', json={'job_id': 'Give me strength'})
 def return_data(in_success, in_instance=None, error_message=None):
     if in_instance is None:
         data = {"success" : in_success,

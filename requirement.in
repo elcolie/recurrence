@@ -5,3 +5,4 @@ Flask-API
 flask-restful
 markdown
 requests
+python-dateutil
