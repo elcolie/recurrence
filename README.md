@@ -26,14 +26,13 @@ Schedule a trigger (REST API)
 HTTP: POST
 URL: '/recurrence/days'
 Input:
-+ start_datetime: string             // format: %Y-%m-%d %h:%m   (24-hour format). Ex: 2009-09-09 09:09
-- end_datetime: string               // same as start_datetime
++ start_date: string             // format: %Y-%m-%d (24-hour format). Ex: 2009-09-09
+- end_date: string               // format: %Y-%m-%d (24-hour format). Program is terminated on this day.
 + days: [enum]                       // {'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'}. Ex: ['fri', 'wed']
 + trigger_time: string               // format: %h:%m            (24-hour format) Ex: 05:05
 + duration: unsigned integer         // > 0
 + duration_unit: enum                // {'minutes', 'hours', 'days'}. Ex: 'days'
 + trigger_identifiers: [string]      // `uuid4` strings. Ex: ['ac97682c-c81e-4170-bb46-8301df317587', 'c28288c0-e24c-4a02-b047-c807bd6df3cc']
-- job_name : string                      // "Big bandwidth after 18:00"
 Output:
 1) HTTP 200      // OK
 status: 200
