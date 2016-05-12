@@ -3,11 +3,11 @@ import sys
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request
 from flask_restful import Resource, Api
-from datetime import datetime
 
 from utility import notify, return_data
 from dateutil.relativedelta import *
 from daysandunitslist import DaysAndUnitsList
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 api = Api(app)
@@ -157,51 +157,41 @@ class Recurrence(Resource):
         elif duration_unit == 'days':
             return relativedelta(days=duration)
 
-    def addjob(self):
-
-        temp_str = ""
-        for i in self.recv_days:  # set(['mon', 'tue'])
-            temp_str += i + ','
-        days_of_week = temp_str[:len(temp_str) - 1]  # "mon,tue"
-        start_hour, start_minute = self.get_start_hours_and_minutes()
-        first_job = scheduler.add_job(notify,
-                                      'cron',
-                                      id=self.recv_trigger_identifiers[0],
-                                      day_of_week=days_of_week,
-                                      hour=start_hour,
-                                      minute=start_minute,
-                                      start_date=self.recv_start_date,
-                                      end_date=self.recv_end_date,
-                                      args=[self.recv_trigger_identifiers[0]])
-        # second job
+    def add_second_job(self):
         end_datetimes_list = []
+        # Find reference monday in code. Easier when maintained.
+        start_datetime_str = " ".join([self.recv_start_date, self.recv_trigger_time])
+        today = datetime.strptime(start_datetime_str, "%Y-%m-%d %H:%M")
+        print(today)
+
+        ref_monday = today + timedelta(days=-today.weekday(), weeks=1)
+        ref_tueday = ref_monday + timedelta(days=1)
+        ref_wedday = ref_tueday + timedelta(days=1)
+        ref_thuday = ref_wedday + timedelta(days=1)
+        ref_friday = ref_thuday + timedelta(days=1)
+        ref_satday = ref_friday + timedelta(days=1)
+        ref_sunday = ref_satday + timedelta(days=1)
+
         for i in self.recv_days:
             if i == "mon":
-                ref_monday = datetime(2016, 5, 2, start_hour, start_minute)  # ref_monday.weekday() = 0;
                 nexttime = ref_monday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
             if i == "tue":
-                ref_tueday = datetime(2016, 5, 3, start_hour, start_minute)  # ref_tueday.weekday() = 1;
                 nexttime = ref_tueday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
             if i == "wed":
-                ref_wedday = datetime(2016, 5, 4, start_hour, start_minute)  # ref_wedday.weekday() = 2;
                 nexttime = ref_wedday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
             if i == "thu":
-                ref_thuday = datetime(2016, 5, 5, start_hour, start_minute)  # ref_thuday.weekday() = 3;
                 nexttime = ref_thuday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
             if i == "fri":
-                ref_friday = datetime(2016, 5, 6, start_hour, start_minute)  # ref_friday.weekday() = 4;
                 nexttime = ref_friday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
             if i == "sat":
-                ref_satday = datetime(2016, 5, 7, start_hour, start_minute)  # ref_satday.weekday() = 5;
                 nexttime = ref_satday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
             if i == "sun":
-                ref_sunday = datetime(2016, 5, 8, start_hour, start_minute)  # ref_sunday.weekday() = 6n;
                 nexttime = ref_sunday + self.get_end_hours_and_minutes(self.recv_duration, self.recv_duration_unit)
                 end_datetimes_list.append(nexttime)
         days_of_week_str = ""
@@ -219,6 +209,24 @@ class Recurrence(Resource):
                                        end_date=self.recv_end_date,
                                        args=[self.recv_trigger_identifiers[1]])
 
+    def addjob(self):
+        temp_str = ""
+        for i in self.recv_days:  # set(['mon', 'tue'])
+            temp_str += i + ','
+        days_of_week = temp_str[:len(temp_str) - 1]  # "mon,tue"
+        start_hour, start_minute = self.get_start_hours_and_minutes()
+        first_job = scheduler.add_job(notify,
+                                      'cron',
+                                      id=self.recv_trigger_identifiers[0],
+                                      day_of_week=days_of_week,
+                                      hour=start_hour,
+                                      minute=start_minute,
+                                      start_date=self.recv_start_date,
+                                      end_date=self.recv_end_date,
+                                      args=[self.recv_trigger_identifiers[0]])
+        # second job
+        self.add_second_job()
+
     def post(self):
         self.json = request.json
         self.recv_start_date = self.json.get('start_date')
@@ -234,11 +242,9 @@ class Recurrence(Resource):
             "invalid_inputs": []
         }
         # Check fields are given.
+        # recv_end_date not given it is None by default. Not cause an error.
         if self.recv_start_date is None:
             self.errors["required_fields_missing"].append("start_date")
-        if self.recv_end_date is None:
-            """Means forever"""
-            self.recv_end_date = "2099-1-1"
         if self.recv_days is None:
             self.errors["required_fields_missing"].append("days")
         if self.recv_trigger_time is None:
@@ -255,8 +261,6 @@ class Recurrence(Resource):
             # All field are present. Then validate the inputs.
             if self.validate_date(self.recv_start_date) is False:
                 self.errors["invalid_inputs"].append("start_date is invalid format")
-            if self.validate_date(self.recv_end_date) is False:
-                self.errors["invalid_inputs"].append("end_date is invalid format")
             if self.validate_days(self.recv_days) is False:
                 self.errors["invalid_inputs"].append("days is invalid format")
             if self.validate_trigger_time(self.recv_trigger_time) is False:
