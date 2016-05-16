@@ -162,7 +162,6 @@ class Recurrence(Resource):
         # Find reference monday in code. Easier when maintained.
         start_datetime_str = " ".join([self.recv_start_date, self.recv_trigger_time])
         today = datetime.strptime(start_datetime_str, "%Y-%m-%d %H:%M")
-        print(today)
 
         ref_monday = today + timedelta(days=-today.weekday(), weeks=1)
         ref_tueday = ref_monday + timedelta(days=1)
@@ -302,12 +301,12 @@ def edit_job():
         return data
 
 
-@app.route('/recurrence', methods=['DELETE'])
+@app.route('/recurrence/days', methods=['DELETE'])
 def delete_job():
     """Create a job
     Input : id
     Output : Plain text
-    Usage : curl -H "Content-Type: application/json" -X DELETE -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence
+    Usage : curl -H "Content-Type: application/json" -X DELETE -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/days
     """
     recv_id = request.json['id']
     try:

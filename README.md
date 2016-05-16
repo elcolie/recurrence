@@ -87,4 +87,4 @@ curl -H "Content-Type: application/json" -X PUT -d '{"id": "dc3d9acb052e47c9be31
 
 **Delete:**
 
-curl -H "Content-Type: application/json" -X DELETE -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/delete
+curl -H "Content-Type: application/json" -X DELETE -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/days
