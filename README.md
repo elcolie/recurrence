@@ -27,7 +27,6 @@ HTTP: POST
 URL: '/recurrence/days'
 Input:
 + start_date: string             // format: %Y-%m-%d (24-hour format). Ex: 2009-09-09
-- end_date: string               // format: %Y-%m-%d (24-hour format). Program is terminated on this day.
 + days: [enum]                       // {'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'}. Ex: ['fri', 'wed']
 + trigger_time: string               // format: %h:%m   //python = %H:%i         (24-hour format) Ex: 05:05
 + duration: unsigned integer         // > 0
@@ -68,6 +67,9 @@ json: {
 + denotes required field
 - denotes optional field
 | denotes an "or"
+
+
+
 
 **Bug**:
 When submitted jobid is duplicated.
