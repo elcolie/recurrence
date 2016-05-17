@@ -1,14 +1,15 @@
 import os
 import sys
 import requests
+from apscheduler.jobstores.base import JobLookupError
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request
 from flask_restful import Resource, Api
 
 from utility import return_data, add_delta, validate_date, validate_days, validate_trigger_time, \
-    validate_duration, validate_duration_unit, validate_trigger_identifiers, is_non_json
-from dateutil.relativedelta import *
+    validate_duration, validate_duration_unit, validate_trigger_identifiers, is_non_json, validate_dates_list, \
+    get_start_hours_and_minutes
 from daysandunitslist import DaysAndUnitsList
 from datetime import datetime, timedelta
 
@@ -59,14 +60,9 @@ class RecurrenceDays(Resource):
     errors = None
     json = None
 
-    def get_start_hours_and_minutes(self):
-        my_hour = datetime.strptime(self.trigger_time, '%H:%M')
-        hour, minute = my_hour.hour, my_hour.minute
-        return hour, minute
-
     def add_job_days(self):
         days_of_week = ",".join(self.days)
-        start_hour, start_minute = self.get_start_hours_and_minutes()
+        start_hour, start_minute = get_start_hours_and_minutes(self.trigger_time)
 
         first_job = scheduler.add_job(notify,
                                       'cron',
@@ -79,7 +75,7 @@ class RecurrenceDays(Resource):
 
     def post(self):
         self.json = request.json
-        self.errors = is_non_json(self.json)
+        self.errors = is_non_json(self.json, 'days')
         if len(self.errors['required_fields_missing']) > 0:
             return self.errors, 400
 
@@ -100,31 +96,87 @@ class RecurrenceDays(Resource):
         if len(self.errors["invalid_inputs"]) > 0:
             return self.errors, 400
         else:
-            start_date = self.json.get('start_date')
-            days = self.json.get('days')
-            trigger_time = self.json.get('trigger_time')
-            duration = self.json.get('duration')
-            duration_unit = self.json.get('duration_unit')
-            trigger_identifiers = self.json.get('trigger_identifiers')
+            self.start_date = self.json.get('start_date')
+            self.days = self.json.get('days')
+            self.trigger_time = self.json.get('trigger_time')
+            self.duration = self.json.get('duration')
+            self.duration_unit = self.json.get('duration_unit')
+            self.trigger_identifiers = self.json.get('trigger_identifiers')
             self.add_job_days()
             return {}, 200
 
+    def delete(self):
+        identifier = request.json.get('id')
+        self.errors = {
+            "invalid_inputs": [],
+        }
+        if identifier is None:
+            self.errors['invalid_inputs'].append("Please give correct trigger_identifier id")
+            return self.errors, 400
+        else:
+            # id is given.
+            try:
+                result = scheduler.remove_job(identifier)
+            except JobLookupError as e:
+                self.errors['invalid_inputs'].append(e.args[0])
+                return self.errors, 400
+            return {}, 200
 
-@app.route('/recurrence/days', methods=['DELETE'])
-def delete_job():
-    """Create a job
-    Input : id
-    Output : Plain text
-    Usage : curl -H "Content-Type: application/json" -X DELETE -d '{"id": "d345afd9d2ba4a3b924179fe87cdeda4"}' http://localhost:5000/recurrence/days
-    """
-    recv_id = request.json['id']
-    try:
-        scheduler.remove_job(recv_id)
-        data = return_data(True)
-        return data
-    except Exception as e:
-        data = return_data(False)
-        return data
+
+class RecurrenceDates(Resource):
+    start_date = None
+    dates = None
+    trigger_time = None
+    duration = None
+    duration_unit = None
+    trigger_identifiers = None
+    errors = None
+    json = None
+
+    def add_job_dates(self):
+        start_hour, start_minute = get_start_hours_and_minutes(self.trigger_time)
+        self.dates = ",".join(self.dates)
+        first_job = scheduler.add_job(notify,
+                                      'cron',
+                                      id=self.trigger_identifiers[0],
+                                      day=self.dates,
+                                      hour=start_hour,
+                                      minute=start_minute,
+                                      start_date=self.start_date,
+                                      args=[self.trigger_identifiers])
+
+    def post(self):
+        self.json = request.json
+        import pdb; pdb.set_trace()
+        self.errors = is_non_json(self.json, 'dates')
+        if len(self.errors['required_fields_missing']) > 0:
+            return self.errors, 400
+
+        # All field are present.
+        if validate_date(self.json.get('start_date')) is False:
+            self.errors["invalid_inputs"].append("start_date is invalid format. Ex: 2009-09-29")
+        if validate_dates_list(self.json.get('dates')) is False:
+            self.errors["invalid_inputs"].append("dates is invalid format. Ex: ['1','11','21','31']")
+        if validate_trigger_time(self.json.get('trigger_time')) is False:
+            self.errors["invalid_inputs"].append("trigger_time is invalid format. (24-hour format) Ex: 05:05")
+        if validate_duration(self.json.get('duration')) is False:
+            self.errors["invalid_inputs"].append("duration must be positive value")
+        if validate_duration_unit(self.json.get('duration_unit')) is False:
+            self.errors["invalid_inputs"].append("duration_unit are one of " + str(DaysAndUnitsList.units_list))
+        if validate_trigger_identifiers(self.json.get('trigger_identifiers')) is False:
+            self.errors["invalid_inputs"].append("trigger_identifiers must not has more than 2")
+
+        if len(self.errors["invalid_inputs"]) > 0:
+            return self.errors, 400
+        else:
+            self.start_date = self.json.get('start_date')
+            self.dates = self.json.get('dates')
+            self.trigger_time = self.json.get('trigger_time')
+            self.duration = self.json.get('duration')
+            self.duration_unit = self.json.get('duration_unit')
+            self.trigger_identifiers = self.json.get('trigger_identifiers')
+            self.add_job_dates()
+            return {}, 200
 
 
 def main(*args, **kwargs):
@@ -146,4 +198,5 @@ def main(*args, **kwargs):
 
 if __name__ == '__main__':
     api.add_resource(RecurrenceDays, '/recurrence/days')
+    api.add_resource(RecurrenceDates, '/recurrence/dates')
     main()

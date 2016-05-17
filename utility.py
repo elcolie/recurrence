@@ -15,6 +15,12 @@ def add_delta(duration, duration_unit):
         return timedelta(minutes=0)
 
 
+def get_start_hours_and_minutes(trigger_time):
+    my_hour = datetime.strptime(trigger_time, '%H:%M')
+    hour, minute = my_hour.hour, my_hour.minute
+    return hour, minute
+
+
 def return_data(in_success, in_instance=None, error_message=None):
     if in_instance is None:
         data = {"success" : in_success,
@@ -88,8 +94,23 @@ def validate_trigger_identifiers(recv_trigger_identifiers):
     return True
 
 
-def is_non_json(input_json):
-    checklist = ['start_date', 'days', 'trigger_time', 'duration', 'duration_unit', 'trigger_identifiers']
+def validate_dates_list(recv_dates_list):
+    """Element in the list must be able to become an integer in range(1,32)"""
+    for i in recv_dates_list:
+        try:
+            tmp = int(i)
+            if tmp < 0:
+                return False
+        except ValueError as e:
+            return False
+    return True
+
+
+def is_non_json(input_json, date_or_day):
+    if date_or_day is 'days':
+        checklist = ['start_date', 'days', 'trigger_time', 'duration', 'duration_unit', 'trigger_identifiers']
+    if date_or_day is 'dates':
+        checklist = ['start_date', 'dates', 'trigger_time', 'duration', 'duration_unit', 'trigger_identifiers']
     errors = {
         "required_fields_missing": [],
         "invalid_inputs": []
