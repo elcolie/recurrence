@@ -18,7 +18,7 @@ api = Api(app)
 scheduler = BackgroundScheduler()
 
 
-@app.route('/recurrence', methods=['GET'])
+@app.route('/debugging', methods=['GET'])
 def list_job():
     """List all jobs
     Input : No input
@@ -27,11 +27,16 @@ def list_job():
     """
     f = open('workfile.txt', 'w')  # Example how to visualize construction details
     scheduler.print_jobs(out=f)
+    f.close()
     joblist = scheduler.get_jobs()
     new_list = []
     for i in joblist:
         data = {"id": i.id, "name": i.name}
-        new_list.append(data)
+        new_list.append(str(data) + '<br>')
+
+    f = open('workfile.txt', 'r')
+    for line in zip(joblist, f):
+        new_list.append(line + '<br>')
     return str(new_list)
 
 
@@ -119,7 +124,7 @@ class RecurrenceDates(Resource):
                 result = scheduler.remove_job(identifier)
             except JobLookupError as e:
                 self.errors['invalid_inputs'].append(e.args[0])
-                return self.errors, 400
+                return self.errors, 410
             return {}, 200
 
 
@@ -197,8 +202,9 @@ class RecurrenceDays(Resource):
                 result = scheduler.remove_job(identifier)
             except JobLookupError as e:
                 self.errors['invalid_inputs'].append(e.args[0])
-                return self.errors, 400
+                return self.errors, 410
             return {}, 200
+
 
 def main(*args, **kwargs):
     url = 'sqlite:///hello.sqlite3'
