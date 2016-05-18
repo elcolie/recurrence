@@ -50,6 +50,79 @@ def notify(recv_trigger_identifiers, duration, duration_unit):
                                    args=[recv_trigger_identifiers[1]])
 
 
+class RecurrenceDates(Resource):
+    start_date = None
+    dates = None
+    trigger_time = None
+    duration = None
+    duration_unit = None
+    trigger_identifiers = None
+    errors = None
+    json = None
+
+    def add_job_dates(self):
+        start_hour, start_minute = get_start_hours_and_minutes(self.trigger_time)
+        self.dates = ",".join(self.dates)
+        data_set = {
+            "id": self.trigger_identifiers[0],
+            "day": self.dates,
+            "hour": start_hour,
+            "minute": start_minute,
+            "start_date": self.start_date,
+            "args": [self.trigger_identifiers, self.duration, self.duration_unit]
+        }
+        first_job = scheduler.add_job(notify, 'cron', **data_set)
+
+    def post(self):
+        self.json = request.json
+        self.errors = is_non_json(self.json, 'dates')
+        if len(self.errors['required_fields_missing']) > 0:
+            return self.errors, 400
+
+        # All field are present.
+        if validate_date(self.json.get('start_date')) is False:
+            self.errors["invalid_inputs"].append("start_date is invalid format. Ex: 2009-09-29")
+        if validate_dates_list(self.json.get('dates')) is False:
+            self.errors["invalid_inputs"].append("dates is invalid format. Ex: ['1','11','21','31']")
+        if validate_trigger_time(self.json.get('trigger_time')) is False:
+            self.errors["invalid_inputs"].append("trigger_time is invalid format. (24-hour format) Ex: 05:05")
+        if validate_duration(self.json.get('duration')) is False:
+            self.errors["invalid_inputs"].append("duration must be positive value")
+        if validate_duration_unit(self.json.get('duration_unit')) is False:
+            self.errors["invalid_inputs"].append("duration_unit are one of " + str(DaysAndUnitsList.units_list))
+        if validate_trigger_identifiers(self.json.get('trigger_identifiers')) is False:
+            self.errors["invalid_inputs"].append("trigger_identifiers must not has more than 2")
+
+        if len(self.errors["invalid_inputs"]) > 0:
+            return self.errors, 400
+        else:
+            self.start_date = self.json.get('start_date')
+            self.dates = self.json.get('dates')
+            self.trigger_time = self.json.get('trigger_time')
+            self.duration = self.json.get('duration')
+            self.duration_unit = self.json.get('duration_unit')
+            self.trigger_identifiers = self.json.get('trigger_identifiers')
+            self.add_job_dates()
+            return {}, 200
+
+    def delete(self):
+        identifier = request.json.get('id')
+        self.errors = {
+            "invalid_inputs": [],
+        }
+        if identifier is None:
+            self.errors['invalid_inputs'].append("Please give correct trigger_identifier id")
+            return self.errors, 400
+        else:
+            # id is given.
+            try:
+                result = scheduler.remove_job(identifier)
+            except JobLookupError as e:
+                self.errors['invalid_inputs'].append(e.args[0])
+                return self.errors, 400
+            return {}, 200
+
+
 class RecurrenceDays(Resource):
     start_date = None
     days = None
@@ -126,63 +199,6 @@ class RecurrenceDays(Resource):
                 self.errors['invalid_inputs'].append(e.args[0])
                 return self.errors, 400
             return {}, 200
-
-
-class RecurrenceDates(Resource):
-    start_date = None
-    dates = None
-    trigger_time = None
-    duration = None
-    duration_unit = None
-    trigger_identifiers = None
-    errors = None
-    json = None
-
-    def add_job_dates(self):
-        start_hour, start_minute = get_start_hours_and_minutes(self.trigger_time)
-        self.dates = ",".join(self.dates)
-        data_set = {
-            "id": self.trigger_identifiers[0],
-            "day": self.dates,
-            "hour": start_hour,
-            "minute": start_minute,
-            "start_date": self.start_date,
-            "args": [self.trigger_identifiers, self.duration, self.duration_unit]
-        }
-        first_job = scheduler.add_job(notify, 'cron', **data_set)
-
-    def post(self):
-        self.json = request.json
-        self.errors = is_non_json(self.json, 'dates')
-        if len(self.errors['required_fields_missing']) > 0:
-            return self.errors, 400
-
-        # All field are present.
-        if validate_date(self.json.get('start_date')) is False:
-            self.errors["invalid_inputs"].append("start_date is invalid format. Ex: 2009-09-29")
-        if validate_dates_list(self.json.get('dates')) is False:
-            self.errors["invalid_inputs"].append("dates is invalid format. Ex: ['1','11','21','31']")
-        if validate_trigger_time(self.json.get('trigger_time')) is False:
-            self.errors["invalid_inputs"].append("trigger_time is invalid format. (24-hour format) Ex: 05:05")
-        if validate_duration(self.json.get('duration')) is False:
-            self.errors["invalid_inputs"].append("duration must be positive value")
-        if validate_duration_unit(self.json.get('duration_unit')) is False:
-            self.errors["invalid_inputs"].append("duration_unit are one of " + str(DaysAndUnitsList.units_list))
-        if validate_trigger_identifiers(self.json.get('trigger_identifiers')) is False:
-            self.errors["invalid_inputs"].append("trigger_identifiers must not has more than 2")
-
-        if len(self.errors["invalid_inputs"]) > 0:
-            return self.errors, 400
-        else:
-            self.start_date = self.json.get('start_date')
-            self.dates = self.json.get('dates')
-            self.trigger_time = self.json.get('trigger_time')
-            self.duration = self.json.get('duration')
-            self.duration_unit = self.json.get('duration_unit')
-            self.trigger_identifiers = self.json.get('trigger_identifiers')
-            self.add_job_dates()
-            return {}, 200
-
 
 def main(*args, **kwargs):
     url = 'sqlite:///hello.sqlite3'
