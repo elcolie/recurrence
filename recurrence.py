@@ -40,7 +40,7 @@ def single_notify(recv_trigger_identifiers):
     r = requests.post('http://localhost:8000/api/scheduled-bod/', json={"job_id": recv_trigger_identifiers})
 
 
-def notify(recv_trigger_identifiers, duration=None, duration_unit=None):
+def notify(recv_trigger_identifiers, duration, duration_unit):
     r = requests.post('http://localhost:8000/api/scheduled-bod/', json={"job_id": recv_trigger_identifiers[0]})
     next_run_time = datetime.now() + add_delta(duration, duration_unit)
     second_job = scheduler.add_job(single_notify,
@@ -63,15 +63,15 @@ class RecurrenceDays(Resource):
     def add_job_days(self):
         days_of_week = ",".join(self.days)
         start_hour, start_minute = get_start_hours_and_minutes(self.trigger_time)
-
-        first_job = scheduler.add_job(notify,
-                                      'cron',
-                                      id=self.trigger_identifiers[0],
-                                      day_of_week=days_of_week,
-                                      hour=start_hour,
-                                      minute=start_minute,
-                                      start_date=self.start_date,
-                                      args=[self.trigger_identifiers])
+        data_set = {
+            "id": self.trigger_identifiers[0],
+            "day_of_week": days_of_week,
+            "hour": start_hour,
+            "minute": start_minute,
+            "start_date": self.start_date,
+            "args": [self.trigger_identifiers, self.duration, self.duration_unit]
+        }
+        first_job = scheduler.add_job(notify, 'cron', **data_set)
 
     def post(self):
         self.json = request.json
@@ -82,14 +82,19 @@ class RecurrenceDays(Resource):
         # All field are present. Then validate the inputs. And return error detail with example.
         if validate_date(self.json.get('start_date')) is False:
             self.errors["invalid_inputs"].append("start_date is invalid format. Ex: 2009-09-29")
+
         if validate_days(self.json.get('days')) is False:
             self.errors["invalid_inputs"].append("days is invalid format. Ex: ['fri', 'wed']")
+
         if validate_trigger_time(self.json.get('trigger_time')) is False:
             self.errors["invalid_inputs"].append("trigger_time is invalid format. (24-hour format) Ex: 05:05")
+
         if validate_duration(self.json.get('duration')) is False:
             self.errors["invalid_inputs"].append("duration must be positive value")
+
         if validate_duration_unit(self.json.get('duration_unit')) is False:
             self.errors["invalid_inputs"].append("duration_unit are one of " + str(DaysAndUnitsList.units_list))
+
         if validate_trigger_identifiers(self.json.get('trigger_identifiers')) is False:
             self.errors["invalid_inputs"].append("trigger_identifiers must not has more than 2")
 
@@ -136,18 +141,18 @@ class RecurrenceDates(Resource):
     def add_job_dates(self):
         start_hour, start_minute = get_start_hours_and_minutes(self.trigger_time)
         self.dates = ",".join(self.dates)
-        first_job = scheduler.add_job(notify,
-                                      'cron',
-                                      id=self.trigger_identifiers[0],
-                                      day=self.dates,
-                                      hour=start_hour,
-                                      minute=start_minute,
-                                      start_date=self.start_date,
-                                      args=[self.trigger_identifiers])
+        data_set = {
+            "id": self.trigger_identifiers[0],
+            "day": self.dates,
+            "hour": start_hour,
+            "minute": start_minute,
+            "start_date": self.start_date,
+            "args": [self.trigger_identifiers, self.duration, self.duration_unit]
+        }
+        first_job = scheduler.add_job(notify, 'cron', **data_set)
 
     def post(self):
         self.json = request.json
-        import pdb; pdb.set_trace()
         self.errors = is_non_json(self.json, 'dates')
         if len(self.errors['required_fields_missing']) > 0:
             return self.errors, 400
