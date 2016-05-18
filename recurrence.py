@@ -207,9 +207,9 @@ class RecurrenceDays(Resource):
 
 
 def main(*args, **kwargs):
-    url = 'sqlite:///hello.sqlite3'
+    url = 'sqlite:///uih_scheduler_server.sqlite3'
     scheduler.add_jobstore('sqlalchemy', url=url)
-    print('To clear the alarms, delete the hello.sqlite3 file.')
+    print('To clear the alarms, delete the uih_scheduler_server.sqlite3 file.')
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
     scheduler.start()
     try:
